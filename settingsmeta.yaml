@@ -1,22 +1,15 @@
 
 skillMetadata:
   sections:
-    - name: Options << Name of section
+    - name: Deezer
       fields:
-        - name: internal_python_variable_name
+        - name: music_dir
           type: text
-          label: Setting Friendly Display Name
-          value: ""
-          placeholder: demo prompt in the input box
-    - name: Login << Name of another section
-      fields:
-        - type: label
-          label: Just a little bit of extra info for the user to understand following settings
-        - name: username
+          label: Where to save downloaded Songs to
+          value: "/opt/mycroft/music"
+          placeholder: Path to music folder (must have mycroft Permissions)
+        - name: arl
           type: text
-          label: Username
+          label: You can get the your arl by manually logging into Deezer using your browser and check the cookies and look for the value of arl.
           value: ""
-        - name: password
-          type: password
-          label: Password
-          value: ""
+          placeholder: Your deezer arl
