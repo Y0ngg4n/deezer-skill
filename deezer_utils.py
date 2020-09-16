@@ -10,8 +10,10 @@ def download_track(track_id, track_directory, arl):
     download_path = os.path.join(track_directory, str(track_id))
     if not os.path.exists(track_directory):
         os.makedirs(track_directory)
-
-    track["download"](download_path, quality=track_formats.MP3_320, filename=str(track_id))
+    try:
+        track["download"](download_path, quality=track_formats.MP3_320, filename=str(track_id))
+    except Exception:
+        pass
     return os.path.join(download_path, str(track_id) + ".mp3")
 
 # def download_playlist(playlist_search_result, arl):

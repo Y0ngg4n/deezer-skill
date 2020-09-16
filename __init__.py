@@ -11,7 +11,9 @@ from mycroft.skills.audioservice import AudioService
 
 from . import deezer_utils
 import os
+import shutil
 import time
+import multiprocessing
 
 
 class Deezer(CommonPlaySkill):
@@ -21,7 +23,10 @@ class Deezer(CommonPlaySkill):
         self.music_dir = self.settings.get('music_dir')
         self.track_directory = os.path.join(self.settings.get('music_dir'), "track")
         self.regexes = {}
-        self.queue = {}
+        self.playlist_data = None
+        self.playlist_playing_index = None
+        self.playing_wait_thread = None
+        self.playing_thread = None
 
     def initialize(self):
         super().initialize()
@@ -35,7 +40,6 @@ class Deezer(CommonPlaySkill):
         self.log.info("Check Query Phrase")
 
         phrase, cps_match_level, data = self.specific_query(phrase=phrase)
-
         if cps_match_level is None:
             track = deezer_utils.search_first_track(track_name=phrase, arl=self.arl)
             if track is None:
@@ -71,38 +75,34 @@ class Deezer(CommonPlaySkill):
 
     def CPS_start(self, phrase, data):
 
+        if self.playing_thread is not None:
+            self.playing_thread.kill()
+            self.playing_thread = None
+        if self.playlist_data is not None:
+            self.playlist_data = None
+        if self.playlist_playing_index is not None:
+            self.playlist_playing_index = None
+
         if data['type'] is 0:
             self.log.info("TrackType is Track")
             self.CPS_play(data['track'])
         elif data['type'] is 1:
             self.log.info("TrackType is Playlist")
             playlist = data['playlist']
+            self.playlist_data = data
             playlist_search_results = data['playlist_search_results']
-            track_directory = os.path.join(self.music_dir,str(playlist_search_results['id']))
-            for i in range(0, len(playlist)):
-                counter = 0
-                try:
-                    downloaded_track = deezer_utils.download_track(track_id=playlist[i]['id'],
-                                                                   track_directory=track_directory,                    arl = self.arl)
-                    self.log.info(downloaded_track)
-                    self.CPS_play(downloaded_track)
-                    self.log.info("Playing now...............................")
-                    time.sleep(playlist[i]['duration'])
-                    os.remove(downloaded_track)
-                except Exception as e:
-                    self.log.error(e)
-                    counter = counter + 1
-                    self.log.info("Failed Songs: " + str(counter) + "############################################")
-
-            os.rmdir(track_directory)
-
+            track_directory = os.path.join(self.music_dir, str(playlist_search_results['id']))
+            self.playing_thread = multiprocessing.Process(target=self.playing_playlist,
+                                                          args=(playlist, track_directory, 0))
+            self.playing_thread.start()
+            self.playing_thread.join()
+            shutil.rmtree(track_directory, ignore_errors=True)
 
     """ Starts playback.
     
         Called by the playback control skill to start playback if the
         skill is selected (has the best match level)
     """
-
 
     def specific_query(self, phrase):
         # Check if saved
@@ -157,22 +157,66 @@ class Deezer(CommonPlaySkill):
 
         return phrase, None, None
 
+    def playing_playlist(self, playlist, track_directory, start_index):
+        for i in range(start_index, len(playlist)):
+            try:
+                self.playlist_playing_index = i
+                track_id = playlist[i]['id']
+                downloaded_track = deezer_utils.download_track(track_id=track_id,
+                                                               track_directory=track_directory, arl=self.arl)
+
+                self.log.info(str(downloaded_track))
+                self.CPS_play(downloaded_track)
+                self.log.info("Playing now ...")
+                duration = playlist[i]['duration']
+                time.sleep(duration)
+                shutil.rmtree(downloaded_track, ignore_errors=True)
+            except Exception as e:
+                print(e)
+                self.log.error(e)
 
     def next_track(self):
-        pass
+        print("Nächster Track")
+        if self.playlist_data is not None:
+            if self.playing_thread is not None:
+                self.playing_thread.kill()
+                self.playing_thread = None
 
+            playlist_search_results = self.playlist_data['playlist_search_results']
+            track_directory = os.path.join(self.music_dir, str(playlist_search_results['id']))
+            self.playing_thread = multiprocessing.Process(target=self.playing_playlist,
+                                                          args=(self.playlist_data['playlist'], track_directory,
+                                                                self.playlist_playing_index + 1))
+            self.playing_thread.start()
+            self.playing_thread.join()
+            shutil.rmtree(track_directory, ignore_errors=True)
+        pass
 
     def prev_track(self):
-        pass
+        if self.playlist_data is not None:
+            if self.playing_thread is not None:
+                self.playing_thread.kill()
+                self.playing_thread = None
 
+            playlist_search_results = self.playlist_data['playlist_search_results']
+            track_directory = os.path.join(self.music_dir, str(playlist_search_results['id']))
+            if self.playlist_playing_index == 0:
+                index = 0
+            else:
+                index = self.playlist_playing_index + 1
+            self.playing_thread = multiprocessing.Process(target=self.playing_playlist,
+                                                          args=(self.playlist_data['playlist'], track_directory,
+                                                                index))
+            self.playing_thread.start()
+            self.playing_thread.join()
+            shutil.rmtree(track_directory, ignore_errors=True)
+        pass
 
     def pause(self):
         pass
 
-
     def resume(self):
         pass
-
 
     def translate_regex(self, regex):
         if regex not in self.regexes:
@@ -182,7 +226,6 @@ class Deezer(CommonPlaySkill):
                     string = f.read().strip()
                 self.regexes[regex] = string
         return self.regexes[regex]
-
 
     @intent_handler('user.intent')
     def speak_user_name(self, message):
