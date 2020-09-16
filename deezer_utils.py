@@ -14,13 +14,25 @@ def download_track(track_id, track_directory, arl):
     track["download"](download_path, quality=track_formats.MP3_320, filename=str(track_id))
     return os.path.join(download_path, str(track_id) + ".mp3")
 
+# def download_playlist(playlist_search_result, arl):
+#     return
+
 
 def search_first_track(track_name, arl):
     deezer = Deezer(arl=arl)
     track_search_results = deezer.search_tracks(query=track_name, limit=1)
     try:
         return track_search_results[0]
-    except IndexError:
+    except KeyError:
+        return None
+
+
+def search_first_playlist(playlist_name, arl):
+    deezer = Deezer(arl=arl)
+    playlist_search_results = deezer.search_playlists(query=playlist_name, limit=1)
+    try:
+        return playlist_search_results[0]
+    except KeyError:
         return None
 
 
