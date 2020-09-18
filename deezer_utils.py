@@ -5,7 +5,7 @@ from pydeezer.constants import track_formats
 
 
 def download_track(track_id, track_directory, arl):
-    deezer = login(arl=arl)
+    deezer, user = login(arl=arl)
     track = deezer.get_track(track_id)
     download_path = os.path.join(track_directory, str(track_id))
     if not os.path.exists(track_directory):
@@ -18,20 +18,18 @@ def download_track(track_id, track_directory, arl):
         pass
     return os.path.join(download_path, str(track_id) + ".mp3")
 
-# def download_playlist(playlist_search_result, arl):
-#     return
 def get_track_id(track_id, arl):
-    deezer = login(arl=arl)
+    deezer, user = login(arl=arl)
     return deezer.get_track(track_id)
 
 def search_first_track(track_name, arl):
-    deezer = login(arl=arl)
+    deezer, user = login(arl=arl)
     result = deezer.search_tracks(query=track_name, limit=1)
     if result:
         return result[0]
 
 def search_first_playlist(playlist_name, arl):
-    deezer = login(arl=arl)
+    deezer, user = login(arl=arl)
     result = deezer.search_playlists(query=playlist_name, limit=1)
     if result:
         return result[0]
