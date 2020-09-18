@@ -21,9 +21,6 @@ from multiprocessing import Process, Value
 class Deezer(CommonPlaySkill):
     def __init__(self):
         super(Deezer, self).__init__()
-        self.arl = self.settings.get('arl')
-        self.music_dir = self.settings.get('music_dir')
-        self.track_directory = os.path.join(self.settings.get('music_dir'), "track")
         self.regexes = {}
         self.playlist_data = None
         self.playing_wait_thread = None
@@ -38,9 +35,15 @@ class Deezer(CommonPlaySkill):
         self.add_event('mycroft.audio.service.prev', self.prev_track)
         self.add_event('mycroft.audio.service.pause', self.pause)
         self.add_event('mycroft.audio.service.resume', self.resume)
+        self.arl = self.settings.get('arl')
+        # TODO directory should probably default to self.file_system.path
+        # This is a unique directory for each Skill. 
+        # There's also mycroft.util.get_cache_directory if you intend it to be temporary
+        self.music_dir = self.settings.get('music_dir', self.file_system.path)
+        self.track_directory = os.path.join(self.music_dir, "track")
 
     def CPS_match_query_phrase(self, phrase):
-        self.log.info("Check Query Phrase")
+        self.log.info(f"Check Query Phrase: {phrase}")
 
         phrase, cps_match_level, data = self.specific_query(phrase=phrase)
         if cps_match_level is None:
@@ -48,7 +51,7 @@ class Deezer(CommonPlaySkill):
             if track is None:
                 return None
             else:
-                track_id = track["id"]
+                track_id = track.get('id')
                 self.speak_dialog(key="track_found",
                                   data={'title_short': track["title_short"], 'artist': track['artist']['name']})
                 download_path = deezer_utils.download_track(track_id=track_id,
@@ -77,7 +80,6 @@ class Deezer(CommonPlaySkill):
     """
 
     def CPS_start(self, phrase, data):
-
         if self.playing_thread is not None:
             self.playing_thread.kill()
             self.playing_thread = None
@@ -86,10 +88,10 @@ class Deezer(CommonPlaySkill):
         if self.playlist_playing_index.value is not None:
             self.playlist_playing_index.value = -1
 
-        if data['type'] is 0:
+        if data['type'] == 0:
             self.log.info("TrackType is Track")
             self.CPS_play(data['track'])
-        elif data['type'] is 1:
+        elif data['type'] == 1:
             self.log.info("TrackType is Playlist")
             playlist = data['playlist']
             self.playlist_data = data
