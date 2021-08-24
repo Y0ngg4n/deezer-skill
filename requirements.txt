@@ -1,2 +1,2 @@
-deezeridu
+py-deezer
 mutagen
